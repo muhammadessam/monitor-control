@@ -1,4 +1,7 @@
 {
+  "error": {
+    "parse_failed": "Could not parse umbriel outputs"
+  },
   "notify": {
     "apply_failed": "Could not apply change",
     "reload_failed": "Config saved but the compositor reload failed",
@@ -39,7 +42,9 @@
       "label": "Show mode text"
     }
   },
-  "title": "Monitor Control",
+  "error": {
+    "parse_failed": "Could not parse umbriel outputs"
+  },
   "tooltip": {
     "mode": "Mode",
     "open": "Open Monitor Control",

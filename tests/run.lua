@@ -75,10 +75,23 @@ check("position in DP-1", dpBlock ~= nil and dpBlock:find("position = %[1920, 0%
 check("no stray position at EOF", not out:sub(-80):find("1920, 0"))
 
 -- stop boundary: the nested [output.DP-1.layout.scrolling] header ends the
--- base section, so keys must not be appended below it
+-- base section, so keys must not be appended below it; and exactly one
+-- position line may be injected.
 out = config.patchConfig(FIXTURE, "DP-1", { x = 5, y = 6 })
-check("append stays inside section", out:find("position = %[5, 6%]%s*%[output%.DP%-1%.") ~= nil
-  or (dpBlock ~= nil))
+local injected = "position = %[5, 6%]"
+local occurrences = 0
+for _ in out:gmatch(injected) do occurrences = occurrences + 1 end
+local at = out:find(injected)
+local nested = out:find("%[output%.DP%-1%.layout%.scrolling%]")
+check("append stays inside section", at ~= nil and nested ~= nil and at < nested)
+check("exactly one position injected", occurrences == 1)
+
+-- trailing inline comments on the replaced line survive
+out = config.patchConfig(FIXTURE, "eDP-1", { mode = "800x600@60" })
+local modeAt = out:find('mode = "800x600@60"')
+local commentAt = out:find("# WIDTHxHEIGHT")
+check("inline comment preserved", modeAt ~= nil and commentAt ~= nil and modeAt < commentAt)
+check("commented vrr still untouched", out:find('#vrr = "fullscreen"') ~= nil)
 
 -- quoted monitor-name header, case-insensitive like Umbriel
 out = config.patchConfig(FIXTURE, "aoc cq32g4 0x1f", { mode = "640x480@60" })

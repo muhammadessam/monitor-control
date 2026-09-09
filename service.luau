@@ -104,7 +104,7 @@ local function refresh()
     end
     local decoded = noctalia.json.decode(result.stdout)
     if type(decoded) ~= "table" then
-      lastError = "could not parse umbriel outputs"
+      lastError = noctalia.tr("error.parse_failed")
       publish()
       return
     end
@@ -134,6 +134,9 @@ local function applyConfig(name, fields)
     return false, reason or "could not patch config"
   end
 
+  -- Best-effort rolling backup for the revert action; the restore path on a
+  -- rejected validate uses the in-memory copy instead, so a nil data dir or a
+  -- failed backup write can never strand an invalid config on disk.
   local backup = dataFile("config.toml.monitor-control.bak")
   if backup ~= nil then
     noctalia.writeFile(backup, text)
@@ -145,14 +148,19 @@ local function applyConfig(name, fields)
   end
 
   noctalia.runAsync({ "umbriel", "validate", "-c", configPath }, function(result)
-    if result.exitCode ~= 0 then
-      local original = backup ~= nil and noctalia.readFile(backup) or nil
-      if original ~= nil then
-        noctalia.writeFile(configPath, original)
-      end
+    if result.exitCode ~= 0 or result.timedOut then
+      -- Restore byte-for-byte from memory: no backup-file dependency at all.
+      local restored, restoreErr = noctalia.writeFile(configPath, text)
       busy = false
       refresh()
-      noctalia.notifyError(noctalia.tr("notify.validate_failed"), noctalia.string.trim(result.stdout))
+      local detail = noctalia.string.trim(result.stderr)
+      if detail == "" then
+        detail = noctalia.string.trim(result.stdout)
+      end
+      if restored == false and restoreErr ~= nil then
+        detail = (detail ~= "" and detail .. " — " or "") .. "restore failed: " .. restoreErr
+      end
+      noctalia.notifyError(noctalia.tr("notify.validate_failed"), detail ~= "" and detail or nil)
       return
     end
 

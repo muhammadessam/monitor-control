@@ -54,13 +54,35 @@ function M.findSection(lines, name)
   return found, #lines + 1
 end
 
--- Sets key = value inside [start, stop): replaces an active line for that key,
--- otherwise appends it at the end of the section.
+-- Trailing TOML comment on a line ("# ..."), or nil. A '#' inside a
+-- double-quoted string is not a comment; scan for the first one outside
+-- quotes so values containing '#' survive.
+local function trailingComment(line)
+  local inString = false
+  for index = 1, #line do
+    local c = line:sub(index, index)
+    if c == '"' then
+      inString = not inString
+    elseif c == "#" and not inString then
+      return line:sub(index):match("^%s*(.-)%s*$")
+    end
+  end
+  return nil
+end
+
+-- Sets key = value inside [start, stop): replaces an active line for that key
+-- (keeping any trailing comment), otherwise appends it at the end of the
+-- section.
 function M.setKey(lines, start, stop, key, value)
   for index = start + 1, stop - 1 do
     local trimmed = string.match(lines[index], "^%s*(.-)%s*$")
     if string.match(trimmed, "^" .. key .. "%s*=") then
-      lines[index] = key .. " = " .. value
+      local comment = trailingComment(trimmed)
+      if comment ~= nil then
+        lines[index] = key .. " = " .. value .. " # " .. comment
+      else
+        lines[index] = key .. " = " .. value
+      end
       return
     end
   end
