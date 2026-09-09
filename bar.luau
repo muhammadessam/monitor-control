@@ -39,8 +39,21 @@ local function render()
   end
   barWidget.setVisible(true)
 
-  local name = snapshot.focused
+  -- Prefer the output THIS bar instance sits on: snapshot.focused comes from
+  -- the service and can be nil outside a focus-driven refresh.
+  local name = barWidget.outputName() or snapshot.focused
   local output = outputByName(name)
+  if output == nil then
+    -- Fallback: the first enabled output with an active mode, so the widget
+    -- still says something useful on a headless/unfocused session.
+    for _, candidate in ipairs(snapshot.outputs or {}) do
+      if candidate.enabled == true and currentModeText(candidate) ~= nil then
+        name = candidate.name
+        output = candidate
+        break
+      end
+    end
+  end
   local modeText = currentModeText(output)
 
   barWidget.setGlyph(noctalia.getConfig("glyph") or "device-desktop")
@@ -72,3 +85,7 @@ noctalia.state.watch("monitor.state", function(value)
 end)
 
 render()
+
+-- Ask the service for a fresh snapshot on load: watch does not replay an old
+-- value, and render() from a stale default hides the widget.
+noctalia.state.set("monitor.request", { action = "refresh" })

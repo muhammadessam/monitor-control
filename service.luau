@@ -310,5 +310,14 @@ function onOutputsChanged()
   refresh()
 end
 
+-- state.watch does not replay an old value to a late-attaching entry, so a
+-- bar widget that loads after the last publish would stay hidden. Re-hand
+-- the snapshot on a slow tick: an in-memory republish, no subprocess.
+noctalia.setUpdateInterval(3000)
+
+function update()
+  publish()
+end
+
 publish()
 refresh()
