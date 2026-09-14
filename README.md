@@ -34,9 +34,9 @@ mode; click opens the panel. Or open the panel directly:
 noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 ```
 
-The control center can carry the same display at a glance: add the `display`
-tile in **Settings → Control Center → Shortcuts**. It shows the focused
-output's resolution and opens the panel when clicked.
+The control center can carry a way into the same panel: add the `display` tile
+in **Settings → Control Center → Shortcuts**. It is the display glyph on its
+own — no caption — and opens the panel when clicked.
 
 The panel opens with an **arrangement map**: every enabled output drawn as a
 rectangle where the compositor actually has it, scaled to keep its real

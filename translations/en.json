@@ -50,8 +50,7 @@
     }
   },
   "shortcut": {
-    "label": "Monitors",
-    "unavailable": "No Umbriel session"
+    "unavailable": "No Umbriel"
   },
   "title": "Umbriel Monitor Control",
   "tooltip": {

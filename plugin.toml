@@ -57,7 +57,7 @@ entry = "bar.luau"
   label_key = "settings.glyph.label"
   default = "device-desktop"
 
-# Control-center tile: the focused output's mode, one click from the panel.
+# Control-center tile: the display glyph on its own; click opens the panel.
 # Add it from Settings -> Control Center -> Shortcuts.
 [[shortcut]]
 id = "display"

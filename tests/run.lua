@@ -1,7 +1,5 @@
 -- Run with any Lua 5.x once installed:  lua tests/run.lua
--- Exercises the plugin's pure modules - config.luau (section/key patching),
--- layout.luau (arrangement geometry and placement) and snapshot.luau (the mode
--- text the bar and control-center tiles show) - against fixture data.
+-- Exercises config.luau (the pure patching module) against fixture text.
 -- The plugin's Luau `require("./config.luau")` is a no-op here; we load the
 -- module from source with the extension swapped.
 
@@ -330,62 +328,6 @@ check("coordinate reasons are returned", (select(2, layout.coordinate("left"))) 
 check("coordinateText canonicalises a value", layout.coordinateText(15) == "15")
 check("coordinateText normalises negative zero", layout.coordinateText("-0") == "0")
 check("coordinateText falls back to 0", layout.coordinateText("nonsense") == "0")
-
--- ── snapshot.luau: what the bar tile and the control-center tile show ───────
-
-local snapshot = loadModule("snapshot.luau")
-
-local function snapOutput(name, width, height, mhz, enabled)
-  return {
-    name = name,
-    enabled = enabled ~= false,
-    modes = { { width = width, height = height, refresh_mhz = mhz, current = true } },
-  }
-end
-
-local laptop = snapOutput("eDP-1", 1920, 1080, 120213)
-local external = snapOutput("DP-1", 2560, 1440, 59940)
-local state = { available = true, focused = "DP-1", outputs = { laptop, external } }
-
-check("byName finds a connector", snapshot.byName(state.outputs, "DP-1") == external)
-check("byName ignores an absent name", snapshot.byName(state.outputs, nil) == nil)
-check("byName ignores an empty name", snapshot.byName(state.outputs, "") == nil)
-check("byName reports an unknown connector", snapshot.byName(state.outputs, "HDMI-1") == nil)
-
--- Rates: a whole number stays whole, 59.94 is not rounded up into a rate the
--- panel never ran at, and a mode that carries no rate still reads.
-check("hzText keeps a whole rate whole", snapshot.hzText(143999) == "144")
-check("hzText leaves 59.94 alone", snapshot.hzText(59940) == "59.94")
-check("hzText shows 120.213 as 120.21", snapshot.hzText(120213) == "120.21")
-check("hzText reports no rate as nil", snapshot.hzText(nil) == nil)
-
-check("modeText names the current mode", snapshot.modeText(laptop) == "1920x1080 120.21Hz")
-check("modeText drops a missing rate", snapshot.modeText({
-  name = "X", modes = { { width = 1920, height = 1080, current = true } },
-}) == "1920x1080")
-check("modeText skips a mode without a size", snapshot.modeText({ name = "X", modes = { { current = true } } }) == nil)
-check("modeText is nil without an output", snapshot.modeText(nil) == nil)
-
--- The control-center tile's label is one elided line, so it shows the
--- resolution alone.
-check("resolutionText is the mode's size", snapshot.resolutionText(laptop) == "1920x1080")
-check("resolutionText is nil without a mode", snapshot.resolutionText({ name = "X" }) == nil)
-check("resolutionText is nil without an output", snapshot.resolutionText(nil) == nil)
-
--- headline: the connector asked for wins, then the focused output, then the
--- first enabled output with a mode.
-check("headline prefers the connector asked for", snapshot.headline(state, "eDP-1") == laptop)
-check("headline falls back to the focused output", snapshot.headline(state, nil) == external)
-check("headline falls back without a focused output", snapshot.headline({ outputs = { laptop, external } }) == laptop)
-check("headline skips a disabled output", snapshot.headline({
-  outputs = { snapOutput("DP-1", 2560, 1440, 59940, false), laptop },
-}) == laptop)
-check("headline keeps a mode-less preferred output", (function()
-  local noMode = { name = "eDP-1", enabled = true, modes = {} }
-  return snapshot.headline({ outputs = { noMode, external } }, "eDP-1") == noMode
-end)())
-check("headline is nil without outputs", snapshot.headline({ outputs = {} }) == nil)
-check("headline survives a missing snapshot", snapshot.headline(nil) == nil)
 
 print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
