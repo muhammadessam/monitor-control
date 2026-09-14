@@ -1,9 +1,11 @@
 --!nonstrict
--- Monitor Control bar widget - the focused output's current mode at a glance.
+-- Monitor Control bar widget - the focused output's refresh rate at a glance.
 --
 -- Click opens the panel; every compositor call goes through the service, so
 -- several bars on several outputs still share one poller. The widget is a thin
--- presentation of the "monitor.state" snapshot.
+-- presentation of the "monitor.state" snapshot. The resolution deliberately
+-- lives on the control-center tile (and in the panel), so the bar keeps the
+-- short, dynamic half of the mode.
 
 local snapshot = { available = false, outputs = {} }
 
@@ -16,19 +18,38 @@ local function outputByName(name)
   return nil
 end
 
-local function currentModeText(output)
+local function currentMode(output)
   if output == nil then
     return nil
   end
   for _, mode in ipairs(output.modes or {}) do
     if mode.current == true then
-      local hz = mode.refresh_mhz / 1000
-      local rounded = math.floor(hz + 0.5)
-      local hzText = math.abs(hz - rounded) < 0.02 and tostring(rounded) or string.format("%.2f", hz)
-      return `{mode.width}x{mode.height} {hzText}Hz`
+      return mode
     end
   end
   return nil
+end
+
+local function hzText(mode)
+  local hz = mode.refresh_mhz / 1000
+  local rounded = math.floor(hz + 0.5)
+  return math.abs(hz - rounded) < 0.02 and tostring(rounded) or string.format("%.2f", hz)
+end
+
+-- "120Hz" - the bar's half of the mode. The resolution is the tile's.
+local function refreshText(mode)
+  if mode == nil then
+    return nil
+  end
+  return hzText(mode) .. "Hz"
+end
+
+-- Full "WxH @ Hz" form, for the tooltip only.
+local function modeText(mode)
+  if mode == nil then
+    return nil
+  end
+  return `{mode.width}x{mode.height} {hzText(mode)}Hz`
 end
 
 local function render()
@@ -47,21 +68,22 @@ local function render()
     -- Fallback: the first enabled output with an active mode, so the widget
     -- still says something useful on a headless/unfocused session.
     for _, candidate in ipairs(snapshot.outputs or {}) do
-      if candidate.enabled == true and currentModeText(candidate) ~= nil then
+      if candidate.enabled == true and currentMode(candidate) ~= nil then
         name = candidate.name
         output = candidate
         break
       end
     end
   end
-  local modeText = currentModeText(output)
+  local mode = currentMode(output)
+  local text = refreshText(mode)
 
   barWidget.setGlyph(noctalia.getConfig("glyph") or "device-desktop")
-  if noctalia.getConfig("show_text") == true and modeText ~= nil then
-    barWidget.setText(modeText)
+  if noctalia.getConfig("show_text") == true and text ~= nil then
+    barWidget.setText(text)
     barWidget.setTooltip({
       { key = noctalia.tr("tooltip.output"), value = tostring(name) },
-      { key = noctalia.tr("tooltip.mode"), value = modeText },
+      { key = noctalia.tr("tooltip.mode"), value = modeText(mode) },
     })
   else
     barWidget.setText("")
