@@ -16,6 +16,7 @@
 -- Umbriel session, the binary is what the service actually runs.
 
 local config = require("./config.luau")
+local layout = require("./layout.luau")
 
 local VALIDATE_TIMEOUT_MS = 5000
 local SETTLE_MS = 800
@@ -31,35 +32,6 @@ configPath = noctalia.expandPath(configPath)
 local outputs = {}
 local busy = false
 local lastError = nil
-
-local function hzText(refreshMhz)
-  return config.hzText(refreshMhz)
-end
-
-local function currentMode(output)
-  for _, mode in ipairs(output.modes or {}) do
-    if mode.current == true then
-      return mode
-    end
-  end
-  return nil
-end
-
--- Logical extent of an output in layout coordinates: the current mode size,
--- swapped for 90/270 transforms and divided by the scale.
-local function logicalSize(output)
-  local mode = currentMode(output)
-  if mode == nil then
-    return nil
-  end
-  local w, h = mode.width, mode.height
-  local transform = output.transform or "normal"
-  if transform == "90" or transform == "270" then
-    w, h = h, w
-  end
-  local scale = (type(output.scale) == "number" and output.scale > 0) and output.scale or 1.0
-  return math.floor(w / scale + 0.5), math.floor(h / scale + 0.5)
-end
 
 local function publish()
   noctalia.state.set("monitor.state", {
@@ -137,7 +109,7 @@ local function applyConfig(name, fields)
   -- Best-effort rolling backup for the revert action; the restore path on a
   -- rejected validate uses the in-memory copy instead, so a nil data dir or a
   -- failed backup write can never strand an invalid config on disk.
-  local backup = dataFile("config.toml.monitor-control.bak")
+  local backup = dataFile("config.toml.bak")
   if backup ~= nil then
     noctalia.writeFile(backup, text)
   end
@@ -179,55 +151,34 @@ end
 
 -- ── placement geometry ───────────────────────────────────────────────────────
 
--- side: "left" | "right" | "up" | "down" - place the named output at that end
--- of the arrangement, against the outer edge of the other enabled outputs,
--- keeping its cross-axis position. An output standing alone returns to origin.
+-- side: "left" | "right" | "up" | "down" - dock the named output on that side of
+-- the other enabled outputs: it lands just outside their edge, level with them
+-- on the other axis (see layout.dock, which holds the maths and its tests).
 local function arrangeFields(name, side)
   local target = nil
-  local others = {}
+  local neighbours = {}
   for _, output in ipairs(outputs) do
     if output.name == name then
       target = output
     elseif output.enabled == true then
-      table.insert(others, output)
+      table.insert(neighbours, output)
     end
   end
   if target == nil then
     return nil, "unknown output"
   end
-  local w, h = logicalSize(target)
+  local w, h = layout.logicalSize(target)
   if w == nil then
     return nil, name .. ": no active mode"
   end
 
-  local x, y = target.position.x, target.position.y
-  if #others == 0 then
-    x, y = 0, 0
-  else
-    local minX, maxRight, minY, maxBottom = math.huge, -math.huge, math.huge, -math.huge
-    for _, other in ipairs(others) do
-      local ow, oh = logicalSize(other)
-      ow = ow or other.width or 0
-      oh = oh or other.height or 0
-      local pos = other.position or { x = 0, y = 0 }
-      minX = math.min(minX, pos.x)
-      maxRight = math.max(maxRight, pos.x + ow)
-      minY = math.min(minY, pos.y)
-      maxBottom = math.max(maxBottom, pos.y + oh)
-    end
-    if side == "left" then
-      x, y = minX - w, y
-    elseif side == "right" then
-      x, y = maxRight, y
-    elseif side == "up" then
-      x, y = x, minY - h
-    elseif side == "down" then
-      x, y = x, maxBottom
-    else
-      return nil, "unknown side"
-    end
-  end
-  return { x = x, y = y }
+  local position = target.position or {}
+  return layout.dock({
+    x = position.x or 0,
+    y = position.y or 0,
+    w = w,
+    h = h,
+  }, layout.rects(neighbours), side)
 end
 
 -- ── request handling ─────────────────────────────────────────────────────────
@@ -247,6 +198,16 @@ local function handleRequest(value)
   local fields, action = nil, value.action
   if action == "set-mode" and type(value.mode) == "string" then
     fields = { mode = value.mode }
+  elseif action == "place" and type(value.name) == "string" then
+    -- Exact position typed in the panel. Validated here as well as there, since
+    -- the same request can arrive over IPC without the panel involved.
+    local x, xReason = layout.coordinate(value.x)
+    local y, yReason = layout.coordinate(value.y)
+    if x == nil or y == nil then
+      noctalia.notifyError(noctalia.tr("notify.apply_failed"), tostring(xReason or yReason))
+      return
+    end
+    fields = { x = x, y = y }
   elseif action == "arrange" then
     local placed, reason = arrangeFields(value.name, value.side)
     if placed == nil then
@@ -263,7 +224,7 @@ local function handleRequest(value)
     end, VALIDATE_TIMEOUT_MS)
     return
   elseif action == "revert" then
-    local backup = dataFile("config.toml.monitor-control.bak")
+    local backup = dataFile("config.toml.bak")
     local original = backup ~= nil and noctalia.readFile(backup) or nil
     if original == nil then
       noctalia.notifyError(noctalia.tr("notify.revert_failed"))
@@ -300,7 +261,7 @@ end
 noctalia.state.watch("monitor.request", handleRequest)
 
 -- CLI surface, mirroring the state channel so a request is testable without
--- the panel:  noctalia msg plugin muhammadessam/monitor-control:service all request '<json>'
+-- the panel:  noctalia msg plugin muhammadessam/umbriel-monitor-control:service all request '<json>'
 function onIpc(event, payload)
   if event ~= "request" or type(payload) ~= "string" then
     return

@@ -1,17 +1,22 @@
-# Monitor Control
+# Umbriel Monitor Control
 
 Place and tune your monitors from the Noctalia bar: move a display left,
 right, above or below the others, and change its resolution and refresh rate.
 Every change is written into the Umbriel config file (validated before it
 lands, restored if invalid) and reloaded live, so settings persist across
-reboots.
+reboots. The same panel is one click away from the control center, through the
+plugin's `display` tile.
+
+**Umbriel only.** This plugin drives the Umbriel compositor through its CLI and
+its config file; it does nothing under niri, Hyprland, Sway or any other
+compositor, and hides its widget outside an Umbriel session.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
-| ID | `muhammadessam/monitor-control` |
-| Entries | Bar widget: `monitor`; panel: `panel`; service: `service` |
+| ID | `muhammadessam/umbriel-monitor-control` |
+| Entries | Bar widget: `monitor`; shortcut: `display`; panel: `panel`; service: `service` |
 
 ## Requirements
 
@@ -26,12 +31,31 @@ Add the `monitor` widget to the bar: it shows the focused output's current
 mode; click opens the panel. Or open the panel directly:
 
 ```sh
-noctalia msg panel-toggle muhammadessam/monitor-control:panel
+noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 ```
+
+The control center can carry the same display at a glance: add the `display`
+tile in **Settings → Control Center → Shortcuts**. It shows the focused
+output's resolution and opens the panel when clicked.
+
+The panel opens with an **arrangement map**: every enabled output drawn as a
+rectangle where the compositor actually has it, scaled to keep its real
+proportions, with a legend row per monitor (name, mode, `x, y` in logical
+pixels). An output placed above another draws above it, side-by-side displays
+draw in one row. The focused output's rectangle carries the thicker border.
 
 In the panel, each monitor card has a resolution dropdown, a refresh-rate
 dropdown and an Apply button, plus four placement buttons (left / right / up /
-down) that dock the monitor against the outer edge of the arrangement.
+down). A placement moves one axis only: the monitor lands just outside the
+others' edge on that side and level with them on the other axis, so left/right
+produce a row and up/down a column. With the other monitors at the origin that
+is the plain `-x` / `+x` / `-y` / `+y` move (y stays 0, x stays 0).
+
+Below them, a **Position** row takes the two coordinates by hand — logical
+pixels, `x` then `y`, as the legend and the map show them (`mode size / scale`;
+negative `y` is above the origin). Enter in either box or the crosshair button
+applies them. The placement buttons stay the coarse move: press one and the
+fields update to whatever it landed on.
 
 ## Settings
 
@@ -45,15 +69,15 @@ down) that dock the monitor against the outer edge of the arrangement.
 ## IPC
 
 ```sh
-noctalia msg panel-toggle muhammadessam/monitor-control:panel
+noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 ```
 
 ## Notes
 
 - **Files written**: the configured Umbriel config (patched `[output.*]`
   sections only; comments and other keys are preserved) and a rolling backup
-  `config.toml.monitor-control.bak` in the plugin's data dir, used to restore
-  if a patched file fails `umbriel validate` or for the revert request.
+  `config.toml.bak` in the plugin's data dir, used to restore if a patched file
+  fails `umbriel validate` or for the revert request.
 - **Commands spawned**: `umbriel outputs --json` (inventory),
   `umbriel validate -c <file>` (pre-reload gate), `umbriel msg config-reload`
   (live apply). No network access.

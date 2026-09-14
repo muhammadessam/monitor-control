@@ -11,7 +11,9 @@
   },
   "panel": {
     "apply": "Apply mode",
+    "apply_position": "Set this exact position",
     "busy": "Applying...",
+    "layout": "Arrangement",
     "monitors": "Monitors",
     "no_outputs": "No outputs reported by the compositor.",
     "off": "off",
@@ -20,6 +22,11 @@
     "place_left": "Place left of others",
     "place_right": "Place right of others",
     "place_up": "Place above others",
+    "position": "Position",
+    "position_invalid": "Position needs whole numbers in logical pixels.",
+    "position_unit": "px",
+    "position_x": "x",
+    "position_y": "y",
     "refresh": "Hz",
     "refresh_state": "Refresh",
     "resolution": "Resolution",
@@ -42,9 +49,11 @@
       "label": "Show mode text"
     }
   },
-  "error": {
-    "parse_failed": "Could not parse umbriel outputs"
+  "shortcut": {
+    "label": "Monitors",
+    "unavailable": "No Umbriel session"
   },
+  "title": "Umbriel Monitor Control",
   "tooltip": {
     "mode": "Mode",
     "open": "Open Monitor Control",
