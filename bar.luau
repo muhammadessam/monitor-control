@@ -1,5 +1,6 @@
 --!nonstrict
--- Monitor Control bar widget - the focused output's refresh rate at a glance.
+-- Monitor Control bar widget - the refresh rate of the output it sits on, at a
+-- glance.
 --
 -- Click opens the panel; every compositor call goes through the service, so
 -- several bars on several outputs still share one poller. The widget is a thin
@@ -52,6 +53,13 @@ local function modeText(mode)
   return `{mode.width}x{mode.height} {hzText(mode)}Hz`
 end
 
+-- The output this instance describes: the bar's own connector when the shell
+-- knows it, otherwise the name this instance settled on earlier. It is
+-- deliberately NOT re-resolved from the compositor's focused output on every
+-- render: with two bars, one per monitor, following the focus made the widget
+-- flip between the two refresh rates whenever the pointer crossed screens.
+local pinnedName = nil
+
 local function render()
   -- Only meaningful on an Umbriel session: take no bar space elsewhere.
   if snapshot.available ~= true then
@@ -60,12 +68,13 @@ local function render()
   end
   barWidget.setVisible(true)
 
-  -- Prefer the output THIS bar instance sits on: snapshot.focused comes from
-  -- the service and can be nil outside a focus-driven refresh.
-  local name = barWidget.outputName() or snapshot.focused
+  -- Prefer the output THIS bar instance sits on. snapshot.focused is only a
+  -- first guess for an instance the shell could not name (a bar built before
+  -- its output was known); once the widget has a name it keeps it.
+  local name = barWidget.outputName() or pinnedName or snapshot.focused
   local output = outputByName(name)
   if output == nil then
-    -- Fallback: the first enabled output with an active mode, so the widget
+    -- Last resort: the first enabled output with an active mode, so the widget
     -- still says something useful on a headless/unfocused session.
     for _, candidate in ipairs(snapshot.outputs or {}) do
       if candidate.enabled == true and currentMode(candidate) ~= nil then
@@ -74,6 +83,9 @@ local function render()
         break
       end
     end
+  end
+  if output ~= nil and name ~= nil then
+    pinnedName = name
   end
   local mode = currentMode(output)
   local text = refreshText(mode)

@@ -27,8 +27,8 @@ compositor, and hides its widget outside an Umbriel session.
 
 ## Usage
 
-Add the `monitor` widget to the bar: it shows the focused output's refresh
-rate; click opens the panel. Or open the panel directly:
+Add the `monitor` widget to the bar: it shows the refresh rate of the output
+it sits on; click opens the panel. Or open the panel directly:
 
 ```sh
 noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel

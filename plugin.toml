@@ -39,7 +39,7 @@ default = true
 id = "service"
 entry = "service.luau"
 
-# Bar tile: focused output's refresh rate; click opens the panel.
+# Bar tile: the output's refresh rate; click opens the panel.
 [[widget]]
 id = "monitor"
 entry = "bar.luau"
